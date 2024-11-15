@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intérprete Educativo de Pseudocódigo</title>
+<style>
+    :root {
+        --primary-color: #3b82f6;
+        --secondary-color: #1d4ed8;
+        --success-color: #22c55e;
+        --error-color: #ef4444;
+        --warning-color: #f59e0b;
+        --background-color: #f3f4f6;
+        --card-background: #ffffff;
+    }
+
+    body {
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background-color: var(--background-color);
+        color: #1f2937;
+        line-height: 1.6;
+        margin: 0;
+        padding: 20px;
+    }
+
+    .container {
+        max-width: 1200px;
+        margin: auto;
+        display: grid;
+        gap: 20px;
+    }
+
+    .card {
+        background: var(--card-background);
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+    }
+
+    .header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .header h1 {
+        color: var(--primary-color);
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .workspace {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+    }
+
+    .editor-section, .output-section {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .toolbar {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    button {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-weight: 500;
+    }
+
+    button:hover {
+        background-color: var(--secondary-color);
+        transform: translateY(-1px);
+    }
+
+    button.secondary {
+        background-color: #6b7280;
+    }
+
+    button.secondary:hover {
+        background-color: #4b5563;
+    }
+
+    .editor {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    #pseudoInput {
+        width: 100%;
+        height: 400px;
+        font-family: 'Fira Code', 'Courier New', Courier, monospace;
+        font-size: 14px;
+        padding: 15px;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        resize: vertical;
+        line-height: 1.5;
+        tab-size: 4;
+    }
+
+    .examples-dropdown {
+        width: 200px;
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .output, #diagram {
+        background-color: #f9fafb;
+        padding: 15px;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+        min-height: 200px;
+        overflow: auto;
+    }
+
+    #diagram {
+        height: 600px;
+        overflow: auto;
+    }
+
+    .help-panel {
+        background-color: #f3f4f6;
+        padding: 20px;
+        border-radius: 6px;
+        margin-top: 20px;
+    }
+
+    .help-panel h3 {
+        color: var(--primary-color);
+        margin-top: 0;
+    }
+
+    .message {
+        padding: 10px;
+        margin: 5px 0;
+        border-radius: 4px;
+    }
+
+    .error {
+        background-color: #fee2e2;
+        color: var(--error-color);
+        border-left: 4px solid var(--error-color);
+    }
+
+    .success {
+        background-color: #dcfce7;
+        color: var(--success-color);
+        border-left: 4px solid var(--success-color);
+    }
+
+    .warning {
+        background-color: #fef3c7;
+        color: var(--warning-color);
+        border-left: 4px solid var(--warning-color);
+    }
+
+    .info {
+        background-color: #dbeafe;
+        color: var(--primary-color);
+        border-left: 4px solid var(--primary-color);
+    }
+
+    .tabs {
+        display: flex;
+        gap: 2px;
+        margin-bottom: -1px;
+    }
+
+    .tab {
+        padding: 10px 20px;
+        border: 1px solid #e5e7eb;
+        border-bottom: none;
+        border-radius: 6px 6px 0 0;
+        cursor: pointer;
+        background: #f9fafb;
+    }
+
+    .tab.active {
+        background: white;
+        border-bottom: 2px solid var(--primary-color);
+    }
+
+    @media (max-width: 768px) {
+        .workspace {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .keyword { color: #8b5cf6; }
+    .comment { color: #6b7280; font-style: italic; }
+    .string { color: #059669; }
+    .number { color: #d97706; }
+    .boolean { color: #2563eb; }
+    .operator { color: #dc2626; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flowchart/1.17.1/flowchart.min.js"></script>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Intérprete Educativo de Pseudocódigo</h1>
+        <p>Aprende lógica de programación de manera interactiva y visual</p>
+    </div>
+
+    <div class="workspace">
+        <div class="editor-section card">
+            <div class="toolbar">
+                <select id="exampleSelect" class="examples-dropdown" onchange="loadExample()">
+                    <option value="">Seleccionar ejemplo...</option>
+                    <option value="helloWorld">Hola Mundo</option>
+                    <option value="calculator">Calculadora Simple</option>
+                    <option value="fibonacci">Serie Fibonacci</option>
+                    <option value="factorial">Factorial</option>
+                    <option value="prime">Verificar Número Primo</option>
+                    <option value="sort">Ordenamiento Burbuja</option>
+                </select>
+                <button onclick="interpretPseudoCode()">Ejecutar</button>
+                <button class="secondary" onclick="clearAll()">Limpiar</button>
+            </div>
+
+            <div class="editor">
+                <textarea id="pseudoInput" spellcheck="false" placeholder="Escribe tu pseudocódigo aquí..."></textarea>
+            </div>
+
+            <div class="help-panel">
+                <h3>Estructuras Soportadas:</h3>
+                <ul>
+                    <li><code class="keyword">INICIO</code> / <code class="keyword">FIN</code> - Delimitan el programa</li>
+                    <li><code class="keyword">DEFINIR</code> variable = valor - Declaración de variables</li>
+                    <li><code class="keyword">MOSTRAR</code> expresión - Salida de datos</li>
+                    <li><code class="keyword">SI</code> condición <code class="keyword">ENTONCES</code> / <code class="keyword">SINO</code> / <code class="keyword">FIN-SI</code></li>
+                    <li><code class="keyword">MIENTRAS</code> condición <code class="keyword">HACER</code> / <code class="keyword">FIN-MIENTRAS</code></li>
+                    <li><code class="keyword">PARA</code> variable <code class="keyword">DESDE</code> inicio <code class="keyword">HASTA</code> fin <code class="keyword">HACER</code> / <code class="keyword">FIN-PARA</code></li>
+                    <li><code class="keyword">FUNCION</code> nombre(params) / <code class="keyword">FIN-FUNCION</code></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="output-section card">
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('output')">Salida</div>
+                <div class="tab" onclick="switchTab('diagram')">Diagrama</div>
+                <div class="tab" onclick="switchTab('debug')">Depurador</div>
+            </div>
+            
+            <div id="output" class="output"></div>
+            <div id="diagram" class="output" style="display: none;"></div>
+            <div id="debug" class="output" style="display: none;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const examples = {
+        helloWorld: `// Este es un programa simple que muestra un mensaje
+INICIO
+MOSTRAR "¡Hola, mundo!"
+MOSTRAR "Bienvenido al mundo de la programación"
+FIN`,
+        calculator: `// Calculadora simple que realiza operaciones básicas
+INICIO
+// Definimos las variables
+DEFINIR num1 = 10
+DEFINIR num2 = 5
+DEFINIR operacion = "+"
+DEFINIR resultado = 0
+
+MOSTRAR "Calculadora Simple"
+MOSTRAR "----------------"
+MOSTRAR "Números: " + num1 + " y " + num2
+MOSTRAR "Operación: " + operacion
+
+// Realizamos la operación según el operador
+SI operacion = "+" ENTONCES
+    resultado = num1 + num2
+SINO SI operacion = "-" ENTONCES
+    resultado = num1 - num2
+SINO SI operacion = "*" ENTONCES
+    resultado = num1 * num2
+SINO SI operacion = "/" ENTONCES
+    SI num2 = 0 ENTONCES
+        MOSTRAR "Error: División por cero"
+    SINO
+        resultado = num1 / num2
+    FIN-SI
+SINO
+    MOSTRAR "Operación no válida"
+FIN-SI
+
+MOSTRAR "El resultado es: " + resultado
+FIN`,
+        fibonacci: `// Generador de serie Fibonacci
+INICIO
+DEFINIR n = 10  // Número de términos a generar
+DEFINIR a = 0
+DEFINIR b = 1
+DEFINIR i = 0
+
+MOSTRAR "Generador Serie Fibonacci"
+MOSTRAR "------------------------"
+MOSTRAR "Primeros " + n + " términos:"
+
+MIENTRAS i < n HACER
+    MOSTRAR a
+    DEFINIR temp = a + b
+    a = b
+    b = temp
+    i = i + 1
+FIN-MIENTRAS
+FIN`,
+        factorial: `// Cálculo de factorial
+INICIO
+DEFINIR numero = 5
+DEFINIR factorial = 1
+DEFINIR i = 1
+
+MOSTRAR "Cálculo de Factorial"
+MOSTRAR "------------------"
+MOSTRAR "Número: " + numero
+
+SI numero < 0 ENTONCES
+    MOSTRAR "Error: No existe factorial de números negativos"
+SINO
+    PARA i DESDE 1 HASTA numero HACER
+        factorial = factorial * i
+    FIN-PARA
+    MOSTRAR "El factorial de " + numero + " es: " + factorial
+FIN-SI
+FIN`,
+        prime: `// Verificar si un número es primo
+INICIO
+DEFINIR numero = 17
+DEFINIR esPrimo = VERDADERO
+DEFINIR i = 2
+
+MOSTRAR "Verificador de Números Primos"
+MOSTRAR "--------------------------"
+MOSTRAR "Número a verificar: " + numero
+
+SI numero <= 1 ENTONCES
+    esPrimo = FALSO
+SINO
+    MIENTRAS i <= numero / 2 Y esPrimo = VERDADERO HACER
+        SI numero % i = 0 ENTONCES
+            esPrimo = FALSO
+        FIN-SI
+        i = i + 1
+    FIN-MIENTRAS
+FIN-SI
+
+SI esPrimo = VERDADERO ENTONCES
+    MOSTRAR numero + " es un número primo"
+SINO
+    MOSTRAR numero + " no es un número primo"
+FIN-SI
+FIN`,
+        sort: `// Ordenamiento Burbuja
+INICIO
+DEFINIR n = 5
+DEFINIR i = 0
+DEFINIR j = 0
+DEFINIR temp = 0
+DEFINIR arr = [64, 34, 25, 12, 22]
+
+MOSTRAR "Ordenamiento Burbuja"
+MOSTRAR "------------------"
+
+MOSTRAR "Arreglo original:"
+PARA i DESDE 0 HASTA n-1 HACER
+    MOSTRAR arr[i]
+FIN-PARA
+
+// Algoritmo de ordenamiento burbuja
+PARA i DESDE 0 HASTA n-2 HACER
+    PARA j DESDE 0 HASTA n-2-i HACER
+        SI arr[j] > arr[j+1] ENTONCES
+            temp = arr[j]
+            arr[j] = arr[j+1]
+            arr[j+1] = temp
+        FIN-SI
+    FIN-PARA
+FIN-PARA
+
+MOSTRAR "Arreglo ordenado:"
+PARA i DESDE 0 HASTA n-1 HACER
+    MOSTRAR arr[i]
+FIN-PARA
+FIN`
+    };
+
+    class PseudoCodeInterpreter {
+        constructor() {
+            this.reset();
+        }
+
+        reset() {
+            this.variables = new Map();
+            this.output = [];
+            this.errors = [];
+            this.warnings = [];
+            this.debugInfo = [];
+            this.currentLine = 0;
+            this.flowchartNodes = [];
+            this.nodeCounter = 0;
+            this.blockStack = [];
+        }
+
+        debug(message) {
+            this.debugInfo.push({
+                line: this.currentLine,
+                message: message,
+                variables: new Map(this.variables)
+            });
+        }
+
+        interpret(code) {
+            this.reset();
+            const lines = code.split('\n').map(line => line.trim());
+            
+            if (!this.validateBasicStructure(lines)) {
+                return this.getResult();
+            }
+
+            const cleanLines = lines.filter(line => line && !line.startsWith('//'));
+
+            this.validateControlStructures(cleanLines);
+            
+            if (this.errors.length === 0) {
+                try {
+                    this.processLines(cleanLines);
+                } catch (error) {
+                    this.errors.push(`Error de ejecución: ${error.message}`);
+                }
+            }
+
+            return this.getResult();
+        }
+
+        validateBasicStructure(lines) {
+            const nonEmptyLines = lines.filter(line => line.trim() && !line.trim().startsWith('//'));
+            
+            if (nonEmptyLines.length === 0) {
+                this.errors.push("El código está vacío");
+                return false;
+            }
+
+            if (!nonEmptyLines[0].startsWith('INICIO')) {
+                this.errors.push("El programa debe comenzar con 'INICIO'");
+                return false;
+            }
+
+            if (!nonEmptyLines[nonEmptyLines.length - 1].startsWith('FIN')) {
+                this.errors.push("El programa debe terminar con 'FIN'");
+                return false;
+            }
+
+            return true;
+        }
+
+        validateControlStructures(lines) {
+            const stack = [];
+            const structureStarts = ['SI', 'MIENTRAS', 'PARA', 'FUNCION'];
+            const structureEnds = ['FIN-SI', 'FIN-MIENTRAS', 'FIN-PARA', 'FIN-FUNCION'];
+
+            lines.forEach((line, index) => {
+                this.currentLine = index + 1;
+                const firstWord = line.split(' ')[0];
+
+                if (structureStarts.includes(firstWord)) {
+                    stack.push({type: firstWord, line: this.currentLine});
+                } else if (structureEnds.includes(firstWord)) {
+                    if (stack.length === 0) {
+                        this.errors.push(`Error en línea ${this.currentLine}: ${firstWord} sin su correspondiente apertura`);
+                        return;
+                    }
+
+                    const start = stack.pop();
+                    const expectedEnd = 'FIN-' + start.type;
+                    if (firstWord !== expectedEnd) {
+                        this.errors.push(`Error en línea ${this.currentLine}: Se esperaba ${expectedEnd} pero se encontró ${firstWord}`);
+                    }
+                }
+            });
+
+            if (stack.length > 0) {
+                stack.forEach(item => {
+                    this.errors.push(`Error: Estructura ${item.type} en línea ${item.line} no fue cerrada`);
+                });
+            }
+        }
+
+        processLines(lines) {
+            let i = 1; // Empezar después de INICIO
+            while (i < lines.length - 1) { // Terminar antes de FIN
+                this.currentLine = i + 1;
+                const line = lines[i].trim();
+                
+                if (line) {
+                    const result = this.processLine(line);
+                    if (result && result.jump) {
+                        i = result.jump;
+                    } else {
+                        i++;
+                    }
+                } else {
+                    i++;
+                }
+            }
+        }
+
+        processLine(line) {
+            this.debug(`Procesando línea: ${line}`);
+            
+            if (line.startsWith('DEFINIR')) {
+                return this.processDefinition(line);
+            } else if (line.startsWith('SI')) {
+                return this.processIfStatement(line);
+            } else if (line.startsWith('SINO SI')) {
+                return this.processElseIfStatement(line);
+            } else if (line.startsWith('SINO')) {
+                return this.processElseStatement(line);
+            } else if (line.startsWith('FIN-SI')) {
+                return this.processEndIf(line);
+            } else if (line.startsWith('MIENTRAS')) {
+                return this.processWhileLoop(line);
+            } else if (line.startsWith('FIN-MIENTRAS')) {
+                return this.processEndWhile(line);
+            } else if (line.startsWith('PARA')) {
+                return this.processForLoop(line);
+            } else if (line.startsWith('FIN-PARA')) {
+                return this.processEndFor(line);
+            } else if (line.startsWith('MOSTRAR')) {
+                return this.processOutput(line);
+            } else if (line.startsWith('FUNCION')) {
+                return this.processFunction(line);
+            } else if (line.startsWith('FIN-FUNCION')) {
+                return this.processEndFunction(line);
+            }
+        }
+
+        processDefinition(line) {
+            const match = line.match(/DEFINIR\s+(\w+)\s*=\s*(.+)/);
+            if (match) {
+                const [, variable, valueExpr] = match;
+                try {
+                    const value = this.evaluateExpression(valueExpr);
+                    this.variables.set(variable, value);
+                    this.debug(`Variable ${variable} definida con valor ${value}`);
+                    this.addFlowchartNode('operation', `Definir ${variable} = ${value}`);
+                } catch (error) {
+                    this.errors.push(`Error en línea ${this.currentLine}: No se pudo evaluar la expresión '${valueExpr}'`);
+                }
+            } else {
+                this.errors.push(`Error en línea ${this.currentLine}: Formato inválido para DEFINIR`);
+            }
+        }
+
+        processOutput(line) {
+            const message = line.replace(/^MOSTRAR\s+/, '').trim();
+            try {
+                const evaluatedMessage = this.evaluateExpression(message);
+                this.output.push(evaluatedMessage);
+                this.debug(`Salida: ${evaluatedMessage}`);
+                this.addFlowchartNode('inputoutput', `Mostrar ${evaluatedMessage}`);
+            } catch (error) {
+                this.errors.push(`Error en línea ${this.currentLine}: No se pudo evaluar la expresión de salida`);
+            }
+        }
+
+        processIfStatement(line) {
+            const condition = line.replace(/^SI\s+/, '').replace(/\s+ENTONCES$/, '');
+            const result = this.evaluateCondition(condition);
+            const nodeId = this.addFlowchartNode('condition', `SI ${condition}`);
+            this.blockStack.push({ type: 'if', nodeId });
+            return { condition: result };
+        }
+
+        processElseIfStatement(line) {
+            const condition = line.replace(/^SINO SI\s+/, '').replace(/\s+ENTONCES$/, '');
+            const result = this.evaluateCondition(condition);
+            const nodeId = this.addFlowchartNode('condition', `SINO SI ${condition}`);
+            this.blockStack.push({ type: 'elseif', nodeId });
+            return { condition: result };
+        }
+
+        processElseStatement(line) {
+            if (this.blockStack.length === 0 || (this.blockStack[this.blockStack.length - 1].type !== 'if' && this.blockStack[this.blockStack.length - 1].type !== 'elseif')) {
+                this.errors.push(`Error en línea ${this.currentLine}: SINO sin SI correspondiente`);
+                return;
+            }
+            const ifNode = this.blockStack[this.blockStack.length - 1];
+            this.addFlowchartNode('operation', 'SINO', ifNode.nodeId);
+        }
+
+        processEndIf(line) {
+            if (this.blockStack.length === 0 || (this.blockStack[this.blockStack.length - 1].type !== 'if' && this.blockStack[this.blockStack.length - 1].type !== 'elseif')) {
+                this.errors.push(`Error en línea ${this.currentLine}: FIN-SI sin SI correspondiente`);
+                return;
+            }
+            this.blockStack.pop();
+            this.addFlowchartNode('operation', 'FIN-SI');
+        }
+
+        processWhileLoop(line) {
+            const condition = line.replace(/^MIENTRAS\s+/, '').replace(/\s+HACER$/, '');
+            const nodeId = this.addFlowchartNode('condition', `MIENTRAS ${condition}`);
+            this.blockStack.push({ type: 'while', nodeId });
+            return { loop: 'while', condition: condition };
+        }
+
+        processEndWhile(line) {
+            if (this.blockStack.length === 0 || this.blockStack[this.blockStack.length - 1].type !== 'while') {
+                this.errors.push(`Error en línea ${this.currentLine}: FIN-MIENTRAS sin MIENTRAS correspondiente`);
+                return;
+            }
+            const whileNode = this.blockStack.pop();
+            this.addFlowchartNode('operation', 'FIN-MIENTRAS', whileNode.nodeId);
+        }
+
+        processForLoop(line) {
+            const match = line.match(/PARA\s+(\w+)\s+DESDE\s+(\S+)\s+HASTA\s+(\S+)\s+HACER/);
+            if (match) {
+                const [, variable, start, end] = match;
+                const nodeId = this.addFlowchartNode('condition', `PARA ${variable} DESDE ${start} HASTA ${end}`);
+                this.blockStack.push({ type: 'for', nodeId });
+                return { loop: 'for', variable, start, end };
+            } else {
+                this.errors.push(`Error en línea ${this.currentLine}: Formato inválido para PARA`);
+            }
+        }
+
+        processEndFor(line) {
+            if (this.blockStack.length === 0 || this.blockStack[this.blockStack.length - 1].type !== 'for') {
+                this.errors.push(`Error en línea ${this.currentLine}: FIN-PARA sin PARA correspondiente`);
+                return;
+            }
+            const forNode = this.blockStack.pop();
+            this.addFlowchartNode('operation', 'FIN-PARA', forNode.nodeId);
+        }
+
+        processFunction(line) {
+            const match = line.match(/FUNCION\s+(\w+)\s*$$(.*?)$$/);
+            if (match) {
+                const [, name, params] = match;
+                const nodeId = this.addFlowchartNode('subroutine', `FUNCION ${name}`);
+                this.blockStack.push({ type: 'function', nodeId });
+                return { function: name, params: params.split(',').map(p => p.trim()) };
+            } else {
+                this.errors.push(`Error en línea ${this.currentLine}: Formato inválido para FUNCION`);
+            }
+        }
+
+        processEndFunction(line) {
+            if (this.blockStack.length === 0 || this.blockStack[this.blockStack.length - 1].type !== 'function') {
+                this.errors.push(`Error en línea ${this.currentLine}: FIN-FUNCION sin FUNCION correspondiente`);
+                return;
+            }
+            const functionNode = this.blockStack.pop();
+            this.addFlowchartNode('operation', 'FIN-FUNCION', functionNode.nodeId);
+        }
+
+        evaluateExpression(expr) {
+            // Reemplazar variables
+            let evaluatedExpr = expr.replace(/\b(\w+)\b/g, (match, varName) => {
+                if (this.variables.has(varName)) {
+                    return this.variables.get(varName);
+                }
+                return match;
+            });
+
+            // Manejar concatenación de strings
+            evaluatedExpr = evaluatedExpr.replace(/["']?\s*\+\s*["']?/g, '');
+
+            // Evaluar operaciones matemáticas básicas
+            try {
+                // Usar Function en lugar de eval para mayor seguridad
+                return Function(`"use strict";return (${evaluatedExpr})`)();
+            } catch {
+                // Si no es una expresión matemática, retornar como string
+                return evaluatedExpr.replace(/^["']|["']$/g, '');
+            }
+        }
+
+        evaluateCondition(condition) {
+            // Implementación mejorada de evaluación de condiciones
+            const operators = {
+                '=': '===',
+                '<>': '!==',
+                'Y': '&&',
+                'O': '||'
+            };
+            
+            let jsCondition = condition;
+            for (const [pseudoOp, jsOp] of Object.entries(operators)) {
+                jsCondition = jsCondition.replace(new RegExp(pseudoOp, 'g'), jsOp);
+            }
+
+            try {
+                return this.evaluateExpression(jsCondition);
+            } catch (error) {
+                this.errors.push(`Error en línea ${this.currentLine}: No se pudo evaluar la condición '${condition}'`);
+                return false;
+            }
+        }
+
+        getResult() {
+            return {
+                output: this.output,
+                errors: this.errors,
+                warnings: this.warnings,
+                debugInfo: this.debugInfo,
+                variables: Object.fromEntries(this.variables),
+                flowchartCode: this.generateFlowchartCode()
+            };
+        }
+
+        generateFlowchartCode() {
+            if (this.errors.length > 0) return '';
+
+            let code = 'st=>start: Inicio\n';
+            code += 'e=>end: Fin\n';
+            
+            this.flowchartNodes.forEach((node, index) => {
+                code += `${node.id}=>${node.type}: ${node.text}\n`;
+                if (node.type === 'condition') {
+                    code += `${node.id}(yes)->${this.flowchartNodes[index + 1]?.id || 'e'}\n`;
+                    code += `${node.id}(no)->${this.findNextSibling(index + 1)}\n`;
+                } else if (node.type === 'operation' && node.text === 'FIN-SI') {
+                    // No añadir conexión para FIN-SI
+                } else if (index < this.flowchartNodes.length - 1) {
+                    code += `${node.id}->${this.flowchartNodes[index + 1].id}\n`;
+                }
+            });
+
+            // Conectar el último nodo al final si no es una condición
+            const lastNode = this.flowchartNodes[this.flowchartNodes.length - 1];
+            if (lastNode && lastNode.type !== 'condition') {
+                code += `${lastNode.id}->e\n`;
+            }
+
+            return code;
+        }
+
+        findNextSibling(startIndex) {
+            let depth = 1;
+            for (let i = startIndex; i < this.flowchartNodes.length; i++) {
+                if (this.flowchartNodes[i].type === 'condition') {
+                    depth++;
+                } else if (this.flowchartNodes[i].text.startsWith('FIN-')) {
+                    depth--;
+                    if (depth === 0) {
+                        return this.flowchartNodes[i + 1]?.id || 'e';
+                    }
+                }
+            }
+            return 'e';
+        }
+
+        addFlowchartNode(type, text, parentId = null) {
+            const id = `node${this.nodeCounter++}`;
+            this.flowchartNodes.push({ id, type, text, parentId });
+            return id;
+        }
+    }
+
+    function interpretPseudoCode() {
+        const input = document.getElementById('pseudoInput').value;
+        const interpreter = new PseudoCodeInterpreter();
+        const result = interpreter.interpret(input);
+        
+        updateUI(result);
+    }
+
+    function updateUI(result) {
+        const outputDiv = document.getElementById('output');
+        const diagramDiv = document.getElementById('diagram');
+        const debugDiv = document.getElementById('debug');
+
+        // Limpiar salidas anteriores
+        outputDiv.innerHTML = '';
+        diagramDiv.innerHTML = '';
+        debugDiv.innerHTML = '';
+
+        // Mostrar errores si los hay
+        if (result.errors.length > 0) {
+            result.errors.forEach(error => {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'message error';
+                errorDiv.textContent = error;
+                outputDiv.appendChild(errorDiv);
+            });
+            return;
+        }
+
+        // Mostrar advertencias
+        result.warnings.forEach(warning => {
+            const warningDiv = document.createElement('div');
+            warningDiv.className = 'message warning';
+            warningDiv.textContent = warning;
+            outputDiv.appendChild(warningDiv);
+        });
+
+        // Mostrar salida
+        result.output.forEach(output => {
+            const outputLine = document.createElement('div');
+            outputLine.className = 'message success';
+            outputLine.textContent = output;
+            outputDiv.appendChild(outputLine);
+        });
+
+        // Mostrar información de depuración
+        debugDiv.innerHTML = '<h3>Información de Depuración:</h3>';
+        result.debugInfo.forEach(info => {
+            const debugLine = document.createElement('div');
+            debugLine.className = 'message info';
+            debugLine.innerHTML = `<strong>Línea ${info.line}:</strong> ${info.message}<br>`;
+            debugLine.innerHTML += `<strong>Variables:</strong> ${JSON.stringify(Object.fromEntries(info.variables))}`;
+            debugDiv.appendChild(debugLine);
+        });
+
+        // Generar diagrama de flujo
+        if (result.flowchartCode) {
+            try {
+                const diagram = flowchart.parse(result.flowchartCode);
+                diagram.drawSVG('diagram', {
+                    'line-width': 2,
+                    'line-length': 50,
+                    'text-margin': 10,
+                    'font-size': 14,
+                    'font-color': 'black',
+                    'line-color': '#3b82f6',
+                    'element-color': '#3b82f6',
+                    'fill': 'white',
+                    'yes-text': 'Sí',
+                    'no-text': 'No',
+                    'arrow-end': 'block',
+                    'scale': 0.8,
+                    'symbols': {
+                        'start': {
+                            'font-color': 'white',
+                            'element-color': '#22c55e',
+                            'fill': '#22c55e'
+                        },
+                        'end': {
+                            'font-color': 'white',
+                            'element-color': '#ef4444',
+                            'fill': '#ef4444'
+                        },
+                        'condition': {
+                            'font-color': '#1e40af',
+                            'element-color': '#93c5fd',
+                            'fill': '#dbeafe'
+                        },
+                        'operation': {
+                            'font-color': '#0369a1',
+                            'element-color': '#7dd3fc',
+                            'fill': '#e0f2fe'
+                        },
+                        'inputoutput': {
+                            'font-color': '#065f46',
+                            'element-color': '#6ee7b7',
+                            'fill': '#ecfdf5'
+                        }
+                    },
+                    'flowstate': {
+                        'past': {'fill': '#d1d5db', 'font-color': '#374151'},
+                        'current': {'fill': '#fde68a', 'font-color': '#92400e'},
+                        'future': {'fill': '#ffffff', 'font-color': '#1f2937'}
+                    }
+                });
+            } catch (error) {
+                console.error('Error al generar el diagrama:', error);
+            }
+        }
+    }
+
+    function loadExample() {
+        const select = document.getElementById('exampleSelect');
+        const example = examples[select.value];
+        if (example) {
+            document.getElementById('pseudoInput').value = example;
+            interpretPseudoCode();
+        }
+    }
+
+    function clearAll() {
+        document.getElementById('pseudoInput').value = '';
+        document.getElementById('output').innerHTML = '';
+        document.getElementById('diagram').innerHTML = '';
+        document.getElementById('debug').innerHTML = '';
+    }
+
+    function switchTab(tabName) {
+        // Ocultar todos los contenidos
+        document.getElementById('output').style.display = 'none';
+        document.getElementById('diagram').style.display = 'none';
+        document.getElementById('debug').style.display = 'none';
+
+        // Mostrar el contenido seleccionado
+        document.getElementById(tabName).style.display = 'block';
+
+        // Actualizar clases de las pestañas
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        event.currentTarget.classList.add('active');
+    }
+
+    // Resaltar sintaxis
+    function highlightSyntax(code) {
+        return code.replace(/\b(INICIO|FIN|DEFINIR|MOSTRAR|SI|ENTONCES|SINO|FIN-SI|MIENTRAS|HACER|FIN-MIENTRAS|PARA|DESDE|HASTA|FIN-PARA|FUNCION|FIN-FUNCION)\b/g, '<span class="keyword">$1</span>')
+                   .replace(/(\/\/.+)/g, '<span class="comment">$1</span>')
+                   .replace(/"([^"]*)"/g, '<span class="string">"$1"</span>')
+                   .replace(/\b(\d+)\b/g, '<span class="number">$1</span>')
+                   .replace(/\b(VERDADERO|FALSO)\b/g, '<span class="boolean">$1</span>')
+                   .replace(/([+\-*/%=<>!]+)/g, '<span class="operator">$1</span>');
+    }
+
+    document.getElementById('pseudoInput').addEventListener('input', function() {
+        this.innerHTML = highlightSyntax(this.value);
+    });
+
+    // Cargar un ejemplo por defecto al iniciar
+    window.onload = () => {
+        document.getElementById('pseudoInput').value = examples.calculator;
+        interpretPseudoCode();
+    };
+</script>
+</body>
+</html>
